@@ -13,7 +13,7 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 public class OAuth2ClientConfiguration {
 
     @Bean
-    public SecurityWebFilterChain  pkceFilterChain(ServerHttpSecurity http, ServerOAuth2AuthorizationRequestResolver resolver) {        
+    public SecurityWebFilterChain pkceFilterChain(ServerHttpSecurity http, ServerOAuth2AuthorizationRequestResolver resolver) {
         http.authorizeExchange(r -> r.anyExchange().authenticated());
         http.oauth2Login(auth -> auth.authorizationRequestResolver(resolver));
         return http.build();
