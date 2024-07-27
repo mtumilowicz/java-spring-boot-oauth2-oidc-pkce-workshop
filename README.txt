@@ -4,3 +4,6 @@
     * https://www.baeldung.com/spring-security-pkce-secret-clients
     * https://github.com/eugenp/tutorials/blob/master/spring-security-modules/spring-security-pkce
     * https://www.oauth.com/playground/authorization-code-with-pkce.html
+
+
+* use: http://127.0.0.1:8080/ not localhost
