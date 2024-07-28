@@ -105,6 +105,17 @@
             -d "redirect_uri=http://127.0.0.1:8080/login/oauth2/code/pkce" \
             -d "code_verifier=sIbiEo4WKEXWVJmRYJBEanLpt5eRD3kodIMYyo7Ywx-w6P_T"
             ```
+            * change `clientAuthenticationMethod` from `CLIENT_SECRET_POST` to `CLIENT_SECRET_POST`
+                ```
+                curl -X POST http://localhost:8085/oauth2/token \
+                -H "Content-Type: application/x-www-form-urlencoded" \
+                -d "client_id=pkce-client" \
+                -d "client_secret=obscura" \
+                -d "grant_type=authorization_code" \
+                -d "code=2Zg-8Vhe9C28eYf6Sk0ai4BK77Ybmsy4yRi1wPqnFHGIrIfpk45btmI_1oDbJc4-orUWmpim-K-GLi9uULbuTdcAcF6Ss7LF0j508KYmbNOPGvENjCn5gMuWNjA-BZqF" \
+                -d "redirect_uri=http://127.0.0.1:8080/login/oauth2/code/pkce" \
+                -d "code_verifier=sIbiEo4WKEXWVJmRYJBEanLpt5eRD3kodIMYyo7Ywx-w6P_T"
+                ```
         1. use token to access `http://localhost:8085/userinfo`
         1. verify public endpoints
             * http://localhost:8085/oauth2/jwks
