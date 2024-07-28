@@ -295,14 +295,62 @@
                         * note that authorization code is used exactly once
                             * in many scenarios that an attacker might get access to the code, it's already been exchanged
                             for an access token and therefore useless
-                * to mitigate the risk of stealing authorization code you can use PKCE
             1. app receives the user’s authorization code
                 * forwards it along with the Client ID and Client Secret, to the OAuth authorization server
                     * why to not pass client secret in the first step?
                         * keeps sensitive information (client secret) from the browser
                             * you could not trust the client (user/his browser which try to use you application)
             1. authorization server sends an ID Token, Access Token, and an optional Refresh Token
+                * refresh tokens
+                    * token that doesn’t expire is too powerful
+                    * to obtain a new access token, the client can rerun the flow
+                        * not really user friendly
+                        * example: 20-minute lifespan
+                            * app would redirect back about three times every hour to log in again
+                    * used to obtain a new access token instead of re-authentication
+                        * storing the refresh token is safer: you can revoke it if you find that it was exposed
+                    * should be considered as sensitive as user credentials
+                        * nuanced: using refresh token requires client authentication
+                            * but in mobiles / public client you don't have client credentials - so only refresh token
+                            * when attacker gains access to both, users are in major trouble
+                    * minimum security requirement: guaranteeing confidential storage
+                        * move refresh tokens to an isolated service in architecture
+                            * main application can request a new access token from this service
+                            * only service has access to the encrypted refresh tokens and associated keys
+                    * refresh token rotation
+                        * each refresh gives new token and **new refresh token**: `rf1 -> (at2, rf2)`
+                            * detect refresh token abuse: if refresh token was reused => invalidate new tokens immediately
+                                * what if stolen token is never used twice?
+                                  * security relies on seeing token twice
+                                  * scenario: attacker steals token and waits until application goes offline (user closed app, is on the airplane etc)
             1. web application can then use the Access Token to gain access to the target API
+    * to mitigate the risk of stealing authorization code you can use PKCE
+        * stands for: Proof Key for Code Exchange
+        * problem with standard authorization code flow
+            * intercepting authorization code + public client
+                * opposite of confidential client
+                    * no real way of authenticating themselves
+                * example
+                    * native apps
+                        * decompiling the app will reveal the Client Secret
+                            * bound to the app and the same for all users and devices
+                        * malicious app is registered with the same custom URI (redirect URI) as the legitimate app
+                            ![txt](img/stealing_auth_code.png)
+                    * single-page apps
+                        * entire source is available to the browser
+                    * called public clients (when an end user could view and modify the code)
+                        * they do not have a real way of authenticating themselves
+        * is not a replacement for a client secret
+            * is recommended even if a client is using a client secret
+            * allows the authorization server to validate: client exchanging the authorization code == same client that requested it
+        * how it works
+            * in place of the `client_secret`, the client app creates a unique string value, `code_verifier`
+            * `code_challenge` = hashed and encoded `code_verifier`
+            * when the client app initiates the first part of the Authorization Code flow, it sends a hashed `code_challenge`
+            * then the client app requests an `access_token` in exchange for the authorization code
+                * client app must include the original unique string value in the `code_verifier`
+            * communication between the client and authorization server should be through a secured channel(TLS)
+            so the codes cannot be intercepted
     * other
         * Client Credentials flow
             * no user involved
@@ -314,119 +362,9 @@
                 * client can use its own credentials to obtain a new access token at any time
         * Implicit and Hybrid flow
             * avoid the authorization code exchange => significantly harder to secure
-* refresh tokens
-    * token that doesn’t expire is too powerful
-    * to obtain a new access token, the client can rerun the flow
-        * not really user friendly
-        * example: 20-minute lifespan
-            * app would redirect back about three times every hour to log in again
-    * used to obtain a new access token instead of reauthentication
-        * storing the refresh token is safer: you can revoke it if you find that it was exposed
-    * should be considered as sensitive as user credentials
-      * it is somewhat nuanced: using refresh token requires client authentication
-        * but in mobiles / public client you don't have client credentials - so only refresh token
-      * when attacker gains access to both, users are in major trouble
-    * minimum security requirement: guaranteeing confidential storage
-      * move refresh tokens to an isolated service in architecture
-        * main application can request a new access token from this service
-        * only service has access to the encrypted refresh tokens and associated keys
-    * how to get refresh token
-      * some STS configurations automatically issue a refresh token to certain clients
-      * sometime client is expected to request offline_access scope when initializing the flow
-    * lifetime
-      * hours, months or eternity
-      * can be revoked at STS
-        * clients can revoke refresh tokens when they no longer need them
-        * users can often revoke refresh tokens to revoke a client's authority to act on their behalf
-    * when a refresh token is no longer valid, no path to recovery
-      * to regain access - run new Authorization Code flow
-      * for backend client apps: often includes explicitly requesting user involvement
-    * refresh token rotation
-      * each refresh gives new token and **new refresh token**
-        * rf1 -> (at2, rf2)
-    * detect refresh token abuse
-      * we have authToken1, refrToken1 if refrToken1 is intercepted and attacker uses it (to get AT2, RT2), if out app
-      uses RT1 we invalidate everything immediately (server knows that RT1 was used for the second time)
-      * what if stolen token is never used twice?
-        * security relies on seeing token twice
-        * scenario: attacker steals token and waits until application goes offline (user closed app, is on the airplane etc)
-
-
-* OAuth and OIDC flows
-  * Authorization Code flow
-    * overview
-      ![alt text](img/security/authorization_code_flow.png)
-    * oidc
-      ![alt text](img/security/oicd/authorization_code_flow.png)
-      ![alt text](img/security/oicd/authorization_code_request.png)
-      ![alt text](img/security/oicd/authorization_code_redirect.png)
-      ![alt text](img/security/oicd/authorization_code_sts_response.png)
-    * oauth
-      ![alt text](img/security/oauth/authorization_code_flow.png)
-      ![alt text](img/security/oauth/authorization_code_request.png)
-      ![alt text](img/security/oauth/authorization_code_sts_response.png)
-    * with pkce
-      ![alt text](img/security/pkce/authorization_code.png)
-      ![alt text](img/security/pkce/request.png)
-      ![alt text](img/security/pkce/exchange.png)
-
 * vulnerabilities
     * with a user logged in, CSRF is possible if the application doesn’t apply any CSRF protection mechanism
     * token hijacking
-
-## PKCE
-* stands for: Proof Key for Code Exchange
-* problem with standard authorization code flow
-    1. if hacker intercepts authorization code he could simulate the flow
-        * he can use some other client and access your (public) API directly and thus retrieve the
-        tokens just the same
-    1. what to do if the client secret cannot be kept private?
-        * native apps
-            * decompiling the app will reveal the Client Secret, which is bound to the app and
-            is the same for all users and devices
-        * single-page apps
-            * cannot securely store a Client Secret because their entire source is available to the browser
-        * called public clients (when an end user could view and modify the code)
-            * they do not have a real way of authenticating themselves
-* is not a replacement for a client secret
-    * is recommended even if a client is using a client secret
-    * allows the authorization server to validate that the client application exchanging the authorization
-    code is the same client application that requested it
-* it does not allow treating a public client as a confidential client
-* PKCE does not protect against "fake apps"
-    * only mitigates the case when another app on the same device try to steal the token that is issued for another app
-    * think of a Bank app, it is not good if another app on the device can get the token that the Bank app is using
-        * how stealing can be done?
-            ![txt](img/stealing_auth_code.png)
-            * malicious app is registered with the same custom URI (redirect URI) as the legitimate app
-* vs Authorization Code flow: don't require to provide a client_secret
-    * reduces security risks for native apps, as embedded secrets aren’t required in source code
-* how it works
-    * summary
-        * in place of the client_secret, the client app creates a unique string value, code_verifier
-        * code_challenge = hashed and encoded code_verifier
-        * when the client app initiates the first part of the Authorization Code flow, it sends a hashed code_challenge
-        * then the client app requests an access_token in exchange for the authorization code
-            * client app must include the original unique string value in the code_verifier
-        * communication between the client and authorization server should be through a secured channel(TLS)
-        so the codes cannot be intercepted
-    * steps
-        1. user clicks Login within the application
-        1. application creates a cryptographically-random code_verifier and code_challenge
-            * code_challenge = Base64-URL-encoded string of the SHA256 hash of the code verifier
-        1. user is redirected to an OAuth authorization server
-        1. user provides credentials
-            * typically, the user is shown a list of permissions that will be granted
-            * authorization server stores the code_challenge  in the database along with the authorization code
-        1. user is redirected to the application, with a one-time authorization code
-            * authorization server stores the code_challenge
-        1. app receives the user’s authorization code
-            * forwards it along with the Client ID and original code_verifier, to the OAuth authorization server
-        1. authorization server verifies the code_challenge and code_verifier
-        1. authorization server responds with an ID token and access token (and optionally, a refresh token)
-        1. application can use the access token to call an API to access information about the user
-        1. API responds with requested data
-
 
 ## OpenId Connect (OIDC)
 * allows for "Federated Authentication"
