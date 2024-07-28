@@ -141,88 +141,125 @@
     * compact and self-contained way for securely transmitting information between parties as a JSON object
     * pronunciation: jot
     * https://jwt.io/
-        * chrome -> dev tools -> application -> storage
-            * HttpOnly cookie
-                * not accessible via JavaScript, reducing the risk of XSS attacks
-                * recommended
-            * in-memory storage
-                * doesn't persist tokens across page reloads or browser sessions
-                    * reauthorize when reloading the page
-                * accessible via JavaScript and vulnerable to XSS attacks
-            * session storage
-                * cleared when the page session ends (typically when the tab or window is closed)
-                * accessible via JavaScript and vulnerable to XSS attacks
-    * typically looks like this: `xxxxx.yyyyy.zzzzz`
-    * three parts separated by a dot
-        * header
-            * formatted as JSON + Base64 encoded
-            ```
-            { // store metadata related to the token
-                "alg": "HS256", // algorithm that generates the signature
-                "typ": "JWT" // the type of the token
-            }
-            ```
-        * payload
-            * formatted as JSON + Base64 encoded
-            ```
-            {
-                "sub": "1234567890",
-                "name": "John Doe",
-                "admin": true
-            }
-            ```
-            * contains the claims - statements about user and additional data
-                * registered claims
-                    * predefined claims which are not mandatory but recommended
-                    * important ones
-                        * `iss` (issuer): issuer of the JWT
-                        * `sub` (subject): subject of the JWT (the user)
-                        * `aud` (audience): recipient for which the JWT is intended
-                        * `exp` (expiration time): time after which the JWT expires
-                * public claims
-                    * defined for public consumption
-                    * required to be collision resistant
-                    * should be well documented
-                * private claims
-                    * known only to the producer and consumer of a JWT
-                * always validate claims even if signature is valid
-        * signature
-            ```
-            HMACSHA256( // example with HMAC SHA256 algorithm
-                base64UrlEncode(header) + "." +
-                base64UrlEncode(payload),
-                secret
-            )
-            ```
-            * used to verify the message wasn't changed along the way
-            * if signed with a private key, it can also verify the sender of the JWT
-            * can be missing
-            * when a JWT is signed, we also call it a JWS (JSON Web Token Signed)
-                * if a token is encrypted, we also call it a JWE (JSON Web Token Encrypted)
-    * keep the token as short as possible
-        * if the token is long, it slows the request
-        * the longer the token, the more time the cryptographic algorithm needs for signing it
-
-    * there’s 4 algorithms that can be used to sign a JWT (seal our envelope):
-        * HMAC (symmetric)
-        * RSA (asymmetric)
-        * ESDSA (asymmetric)
-        * None (no signature)
-            * not supposed to be used for a production environment
-        * ideal configuration: disable all algorithms that are not being used and specially
-            * substitution attack
-                1. attacker authenticates to a web server with valid credentials
-                1. web server generates a JWT and signs it with an RSA private key
-                1. JWT is passed on to the attacker
-                1. attacker tampers with the JWT
-                    1. downloads the public key
-                        * public key is exposed on an endpoint such as /.well-known/jwks.json
-                    1. changes JWT
-                    1. signs the JWT with the exposed public key
-                    1. changes the encryption algorithm to HMAC
-                    1. sends the request across
-                1. tampered JWT has been signed with the exposed public key, and the algorithm in use is HMAC, the JWT gets validated
-                    * HMAC is a symmetrical encryption
+        * typically looks like this: `xxxxx.yyyyy.zzzzz`
+        * three parts separated by a dot
+            * header
+                * formatted as JSON + Base64 encoded
+                ```
+                { // store metadata related to the token
+                    "alg": "HS256", // algorithm that generates the signature
+                    "typ": "JWT" // the type of the token
+                }
+                ```
+            * payload
+                * formatted as JSON + Base64 encoded
+                ```
+                {
+                    "sub": "1234567890",
+                    "name": "John Doe",
+                    "admin": true
+                }
+                ```
+                * contains the claims - statements about user and additional data
+                    * registered claims
+                        * predefined claims which are not mandatory but recommended
+                        * important ones
+                            * `iss` (issuer): issuer of the JWT
+                            * `sub` (subject): subject of the JWT (the user)
+                            * `aud` (audience): recipient for which the JWT is intended
+                            * `exp` (expiration time): time after which the JWT expires
+                    * public claims
+                        * defined for public consumption
+                        * required to be collision resistant
+                        * should be well documented
+                    * private claims
+                        * known only to the producer and consumer of a JWT
+                    * always validate claims even if signature is valid
+            * signature
+                ```
+                HMACSHA256( // example with HMAC SHA256 algorithm
+                    base64UrlEncode(header) + "." +
+                    base64UrlEncode(payload),
+                    secret
+                )
+                ```
+                * used to verify the message wasn't changed along the way
+                * if signed with a private key, it can also verify the sender of the JWT
+                * can be missing
+                * when a JWT is signed, we also call it a JWS (JSON Web Token Signed)
+                    * if a token is encrypted, we also call it a JWE (JSON Web Token Encrypted)
+        * keep the token as short as possible
+            * if the token is long, it slows the request
+            * the longer the token, the more time the cryptographic algorithm needs for signing it
+        * there’s 4 algorithms that can be used to sign a JWT (seal our envelope)
+            * HMAC (symmetric)
+            * RSA (asymmetric)
+            * ESDSA (asymmetric)
+            * None (no signature)
+                * not supposed to be used for a production environment
+            * ideal configuration: disable all algorithms that are not being used and specially
+                * substitution attack
+                    1. attacker authenticates to a web server with valid credentials
+                    1. web server generates a JWT and signs it with an RSA private key
+                    1. JWT is passed on to the attacker
+                    1. attacker tampers with the JWT
+                        1. downloads the public key
+                            * public key is exposed on an endpoint such as /.well-known/jwks.json
+                        1. changes JWT
+                        1. signs the JWT with the exposed public key
+                        1. changes the encryption algorithm to HMAC
+                        1. sends the request across
+                    1. tampered JWT has been signed with the exposed public key, and the algorithm in use is HMAC, the JWT gets validated
+                        * HMAC is a symmetrical encryption
+        * frontend
+            * chrome -> dev tools -> application -> storage
+            * securing token in the browser alone is not possible
+                * stealing data from storage areas is a trivial attack
+                * solution: backend for frontend (BFF)
+                    * bff proxies api calls and replaces cookies with tokens
+                    * attacker has no longer direct access to security token service
+                    * compromised frontend app can still send request through bff (aka session riding)
+                        * bff reduces consequences of attack to session riding
+                            * only endpoints exposed by bff can be abused
+                            * attacker never has unfettered access to the apis
+                            * bff observes all the api requests from a client and can perform rate-limiting, anomaly detection etc
+            * storage
+                * HttpOnly cookie
+                    * not accessible via JavaScript, reducing the risk of XSS attacks
+                    * recommended
+                        * CSRF is possible if the application doesn’t apply any CSRF protection mechanism
+                            * using cookies = vulnerable by default
+                            * SameSite cookies
+                                * adds a flag for the browser: that cookie is intended for same site request only
+                                * are not included on cross-site requests
+                                    * attacker can still send the request, but cookie-based authentication state will not be included by the browser
+                                * Chrome is using SameSite cookie as default behaviour
+                                * problem: SameSite cookies cannot protect against Cross-Origin Request Forgery
+                                    * SameSite cookies effectively mitigate Cross-Site Request Forgery attacks
+                                    * attacker: launch attack from subdomain of your site
+                                        * why would we ever give an attacker control over a subdomain?
+                                            * Rampant CNAME misconfiguration leaves thousands of organizations open to subdomain takeover attacks
+                                                * DNS wrongly configured - CNAME points to some cloud resource
+                                                * there are some unused entries that attacker can register once again to point to his malicious site
+                                                    * dangling subdomains
+                            * defense summary
+                                ![alt text](img/security/csrf_defense_summary.png)
+                                * synchronizer tokens
+                                    * server returns response with secret + cookie
+                                        * you need to send that secret to server as part of request: `url=...&csrf_token=530_ea8`
+                                    * attacker cannot read it as secret is in victim browser and no outside
+                                        * so standard attack is undoable
+                                        * same-origin policy prevents a malicious page from stealing a legitimate token from a page
+                                            * ensures that a malicious page from a different domain cannot read the anti-CSRF token from the target site
+                                                * it cannot make cross-origin requests
+                                    * problem: requires explicit implementation effort and is often forgotten or omitted
+                * in-memory storage
+                    * doesn't persist tokens across page reloads or browser sessions
+                        * reauthorize when reloading the page
+                    * accessible via JavaScript and vulnerable to XSS attacks
+                * session storage
+                    * cleared when the page session ends (typically when the tab or window is closed)
+                    * accessible via JavaScript and vulnerable to XSS attacks
 
 ## oauth2
 * oauth1
@@ -362,9 +399,6 @@
                 * client can use its own credentials to obtain a new access token at any time
         * Implicit and Hybrid flow
             * avoid the authorization code exchange => significantly harder to secure
-* vulnerabilities
-    * with a user logged in, CSRF is possible if the application doesn’t apply any CSRF protection mechanism
-    * token hijacking
 
 ## OpenId Connect (OIDC)
 * allows for "Federated Authentication"
@@ -398,76 +432,3 @@
 * use: http://127.0.0.1:8080/ not localhost
 * http://localhost:8085/.well-known/oauth-authorization-server
 * http://localhost:8085/.well-known/openid-configuration
-
-# csrf
-* if u use cookies - ur by default vulnerable
-* prerequisite: track user authentication state in cookie
-  * what matters is transport mechanism is cookie
-  * authentication state could be anything: session-id or token etc
-* steps
-  * setting scene with normal communication
-    ![alt text](img/security/csrf/session_cookie_get.png)
-  * evil web page is sending request to the backend when u visit
-    ![alt text](img/security/csrf/attack.png)
-    * how to get there? attack sends u a link: "u must watch it"
-    * request looks identical to legitimate scenario
-* csrf defense:
-  * synchronizer tokens
-    ![alt text](img/security/csrf/defense_synchronizer_tokens.png)
-    * server returns response with secret + cookie, and then u need to send that secret to server as part of request
-      * url=...&csrf_token=530_ea8
-    * attacker cannot read it as secret is in victim browser and no outside
-      * so standard attack is undoable
-      * same-origin policy prevents a malicious page from stealing a legitimate token from a page
-        * The same-origin policy ensures that a malicious page from a different domain cannot read the anti-CSRF token from the target site because it cannot make cross-origin requests.
-    * problem: requires explicit implementation effort and is often forgotten or omitted
-  * SameSite cookies
-    ![alt text](img/security/csrf/defense_samesite_cookies.png)
-    * adds a flag for the browser: that cookie is intended for same site request only
-    * attacker cannot use it, because browser would remove that cookie: only same site allowed
-    * SameSite cookies are not included on cross-site requests
-    * attacker can still send the request, but cookie-based authentication state will not be included by the browser
-    * default behaviour: google rolls out SameSite cookie changes to Chrome
-    * problem: SameSite cookies cannot protect against Cross-Origin (but Same-Site) Request Forgery
-      * SameSite cookies effectively mitigate Cross-Site Request Forgery attacks
-      * attacker: launch attack from subdomain of your site
-        * why would we ever give an attacker control over a subdomain?
-          * Rampant CNAME misconfiguration leaves thousands of organizations open to subdomain takeover attacks
-            * DNS wrongly configured - CNAME points to some cloud resource
-            * there are some unused entries that attacker can register once again to point to his malicious site
-            * dangling subdomains
-          * attackers can serve malicious content to hijack user's sessions by abusing OAuth 2.0 redirect URIs
-* same for APIs -> you can format data as json from malicious web
-  * APIs that rely on cookies are less common
-  * APIS should restrict HTTP methods and content types, and force the use of CORS requests by requiring the client
-    to include a custom request header
-* defense summary
-  ![alt text](img/security/csrf/defense_summary.png)
-
-
-# frontend
-* securing Oauth2 in the browser alone is not possible
-* attackers can do anything a legitimate frontend developer can do
-  * including modifying the page, sending requests and running Oauth2 flows
-* besides the general risk of XSS, if tokens are stored or handled by the browser, XSS poses an
-additional risk of token exfiltration
-  * stealing data from storage areas is a trivial attack
-* u cannot secure browser-only flows
-  * solution: backend for frontend (BFF)
-    * remove all OAuth2 functionality from the frontend app
-      * relies now on cookies
-    * bff proxies api calls and replaces cookies with tokens
-    * bff runs the authorization code flow with client authentication
-      * vs frontend running auth code flow WITHOUT client authentication
-    * attacker has no longer direct access to security token service
-      * compromised frontend app can still send request through bff (aka session riding)
-        * bff reduces consequences of attack to session riding
-      * only endpoints exposed by bff can be abused
-        * attacker never has unfettered access to the apis
-    * bff observes all the api requests from a client and can perform rate-limiting, anomaly detection etc
-    * even with bff preventing xss is crucial
-    * putting access token in an HttpOnly cookie moves token handling from the frontend to the browser
-      * works well in first-party scenarios where the authorization server and the backend belong to the same domain
-* stopping token exfiltration is irrelevant
-  * attacker can invoke its own oauth2 flow in background and get its own tokens
-    * completely independent from the application's tokens => refresh token rotation does not help
