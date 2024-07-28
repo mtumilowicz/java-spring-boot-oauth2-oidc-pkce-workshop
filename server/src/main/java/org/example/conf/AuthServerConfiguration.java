@@ -60,9 +60,9 @@ public class AuthServerConfiguration {
         RegisteredClient pkceClient = RegisteredClient
             .withId(UUID.randomUUID().toString())
             .clientId("pkce-client")
-            .clientSecret("{noop}obscura")
-            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-//            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+            .clientSecret("obscura") // {noop} means don't use PasswordEncoder
+            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC) // basic auth
+//            .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST) // post params
             .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
             .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
             .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
