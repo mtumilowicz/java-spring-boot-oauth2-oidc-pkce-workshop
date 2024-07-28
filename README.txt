@@ -47,6 +47,30 @@
     * https://stackoverflow.com/questions/58872488/where-is-the-oauth-access-token-stored-in-the-browser-in-case-of-authorization-c
     * https://spring.io/blog/2023/05/24/spring-authorization-server-is-on-spring-initializr
     * https://chatgpt.com/
+    * [SSL/TLS for Mortals by Maarten Mulders](https://www.youtube.com/watch?v=yJrJEvvW_HA)
+    * [10 Excellent Ways to Secure Your Spring Boot Application by Brian Vermeer & Matt Raible](https://www.youtube.com/watch?v=PpqNMhe4Bd0)
+    * [2019 - Grzegorz Krol - Uwierzytelnienie oraz Autoryzacja w Świecie Mediów i Dostawców Tożsamości](https://www.youtube.com/watch?v=HJhbAxtqFnk)
+    * [The Hacker's Guide to JWT Security by Patrycja Wegrzynowicz](https://www.youtube.com/watch?v=dq39w4MiZzs)
+    * [Modern Identity Management in the Era of Serverless and Microservices by Mercedes Wyss](https://www.youtube.com/watch?v=3_4B22rysPQ)
+    * [Implementing Microservices Security Patterns & Protocols by Joe Grandja, Adib Saikali](https://www.youtube.com/watch?v=nrmQH5SqraA)
+    * [GOTO 2020 • OAuth and OpenID Connect in Plain English • Nate Barbettini](https://www.youtube.com/watch?v=sSy5-3IkXHE)
+    * [282. WJUG - Jacek Milewski "Hasła - czy to Ty je łamiesz moim użytkownikom?" [PL]](https://www.youtube.com/watch?v=DOSbgZFqLtM)
+    * [The Secrets of OAuth 2.0 Part 1/2 • Aaron Parecki & Eric Johnson • GOTO 2020](https://www.youtube.com/watch?v=HhwUMESAddM)
+    * [Spring Security: The Good Parts by Daniel Garnier-Moiroux](https://www.youtube.com/watch?v=TrCLf9zAQfs)
+    * [What's (not so) new in the new OWASP Top 10 • Tomasz Wrobel • Devoxx Poland 2022](https://www.youtube.com/watch?v=9YU6A4q9mc8)
+    * [2023 - Łukasz Wojtach - Królewna Śnieżka i siedmiu współbieżnych krasnoludków](https://www.youtube.com/watch?v=chaS4bFwuSY)
+    * [[VDCLUJ2023] Brian Vermeer - Stranger Danger: Your Java Attack Surface Just Got Bigger](https://www.youtube.com/watch?v=KtU2S5ReUhA)
+    * [OAuth2, OpenID: live coding SSO, from first principles By Daniel Garnier Moiroux](https://www.youtube.com/watch?v=wP4TVTvYL0Y)
+    * [IAM Doomsday Prepper: Surviving the Apocalypse with Keycloak By Maik Kingma](https://www.youtube.com/watch?v=aZOoH0i4s-0)
+    * [Securing Your Java Containers by Breaking In By Brian Vermeer](https://www.youtube.com/watch?v=O33z-CWVNpA)
+    * [Keep your dependencies up to date with Renovate By Michael Vitz](https://www.youtube.com/watch?v=q43LmW1b2O0)
+    * [SEVEN things about API security By Philippe De Ryck](https://www.youtube.com/watch?v=xFzaFo0MiH8)
+    * [Introduction to OAuth 2.0 and OpenID Connect By Philippe De Ryck](https://www.youtube.com/watch?v=ZuQoN2x8T6k)
+    * [Do you really know JWT? by Karim Pinchon](https://www.youtube.com/watch?v=1dJwKVkrRJo)
+    * [The Past, Present, and Future of Cross-Site/Cross-Origin Request Forgery by Dr Philippe De Ryck](https://www.youtube.com/watch?v=K903vmJI-1U)
+    * [The insecurity of OAuth 2.0 in frontends - Philippe de Ryck - NDC Security 2023](https://www.youtube.com/watch?v=OpFN6gmct8c)
+    * [The Insecurity of OAuth 2.0 in Frontends](https://www.youtube.com/watch?v=2nVYLruX76M)
+    * [Getting API security right - Philippe De Ryck - NDC London 2023](https://www.youtube.com/watch?v=7UBm8QFTaq0)
 
 ## general
 * authentication
@@ -201,11 +225,19 @@
                     * HMAC is a symmetrical encryption
 
 ## oauth2
-* delegated authorization
+* oauth1
+    * signature process is complex and difficult to implement correctly
+        * less flexible for different types of clients and use cases
+    * token handling less straightforward
+        * two types of tokens: request token, access token
+    * limited adoption
+* used for delegated authorization
     * how can I allow an app to access my data without necessarily giving it my password?
-    * authorization is the ability of an external app to access resources
-    * example: Spotify trying to access your facebook friends list to import it into Spotify
-* implementations: Keycloak or Okta
+    * use cases
+        * Spotify trying to access your facebook friends list to import it into Spotify
+        * keep posts for linkedin and twitter in a buffer, schedule them and post on twitter and linkedin on a given hour
+        * authorize some website to access pictures hosted on Google Photos without sharing his Google password
+* implementations: Keycloak, Okta
 * defines four roles
     * Resource Owner
         * the user himself
@@ -238,33 +270,50 @@
                 * commonly used
                     * google, twitter etc
                         * https://developer.github.com/apps/building-oauth-apps/authorizing-oauth-apps/
-* vulnerabilities
-    * with a user logged in, CSRF is possible if the application doesn’t apply any CSRF protection mechanism
-    * token hijacking
-* authorization code flow
-    * exchanges an authorization code for a token
-        * alongside with app’s Client Secret
-    * steps
-        1. user clicks on a login link in the web application
-        1. user is redirected to an OAuth authorization server
-        1. user provides credentials
-            * typically, the user is shown a list of permissions that will be granted
-        1. user is redirected to the application, with a one-time authorization code
-            * authorization code will be available in the `code` URL parameter
-                * from specification: authorization code will be sent via HTTP 302 "redirect" URL to the client
-            * why authorization code is returned and not the token itself?
-                * prevents replay attacks
-                    * note that authorization code is used exactly once
-                        * in many scenarios that an attacker might get access to the code, it's already been exchanged
-                        for an access token and therefore useless
-            * to mitigate the risk of stealing authorization code you can use PKCE
-        1. app receives the user’s authorization code
-            * forwards it along with the Client ID and Client Secret, to the OAuth authorization server
-                * why to not pass client secret in the first step?
-                    * keeps sensitive information (client secret) from the browser
-                        * you could not trust the client (user/his browser which try to use you application)
-        1. authorization server sends an ID Token, Access Token, and an optional Refresh Token
-        1. web application can then use the Access Token to gain access to the target API
+* scopes
+    * allow user to delegate subset of their full authority to a client application
+    * define the scope of an access token
+    * space delimited string
+      * example: `scope=opendid email profile read:reviews`
+      * github has granular scopes like: "invite ppl to repo" etc
+    * OAuth2 does not define any scope values
+        * OIDC has a set of reserved scopes
+* flows
+    * authorization code flow
+        * exchanges an authorization code for a token
+            * alongside with app’s Client Secret
+        * steps
+            1. user clicks on a login link in the web application
+            1. user is redirected to an OAuth authorization server
+            1. user provides credentials
+                * typically, the user is shown a list of permissions that will be granted
+            1. user is redirected to the application, with a one-time short-lived authorization code
+                * authorization code will be available in the `code` URL parameter
+                    * from specification: authorization code will be sent via HTTP 302 "redirect" URL to the client
+                * why authorization code is returned and not the token itself?
+                    * prevents replay attacks
+                        * note that authorization code is used exactly once
+                            * in many scenarios that an attacker might get access to the code, it's already been exchanged
+                            for an access token and therefore useless
+                * to mitigate the risk of stealing authorization code you can use PKCE
+            1. app receives the user’s authorization code
+                * forwards it along with the Client ID and Client Secret, to the OAuth authorization server
+                    * why to not pass client secret in the first step?
+                        * keeps sensitive information (client secret) from the browser
+                            * you could not trust the client (user/his browser which try to use you application)
+            1. authorization server sends an ID Token, Access Token, and an optional Refresh Token
+            1. web application can then use the Access Token to gain access to the target API
+    * other
+        * Client Credentials flow
+            * no user involved
+                * used for non-user flows like: scheduled cron jobs, github actions, configuration tools
+            * identity tokens are not used
+                * Oauth2 only, not an OIDC
+            * works only with confidential clients
+            * no refresh token
+                * client can use its own credentials to obtain a new access token at any time
+        * Implicit and Hybrid flow
+            * avoid the authorization code exchange => significantly harder to secure
 * refresh tokens
     * token that doesn’t expire is too powerful
     * to obtain a new access token, the client can rerun the flow
@@ -302,6 +351,28 @@
         * security relies on seeing token twice
         * scenario: attacker steals token and waits until application goes offline (user closed app, is on the airplane etc)
 
+
+* OAuth and OIDC flows
+  * Authorization Code flow
+    * overview
+      ![alt text](img/security/authorization_code_flow.png)
+    * oidc
+      ![alt text](img/security/oicd/authorization_code_flow.png)
+      ![alt text](img/security/oicd/authorization_code_request.png)
+      ![alt text](img/security/oicd/authorization_code_redirect.png)
+      ![alt text](img/security/oicd/authorization_code_sts_response.png)
+    * oauth
+      ![alt text](img/security/oauth/authorization_code_flow.png)
+      ![alt text](img/security/oauth/authorization_code_request.png)
+      ![alt text](img/security/oauth/authorization_code_sts_response.png)
+    * with pkce
+      ![alt text](img/security/pkce/authorization_code.png)
+      ![alt text](img/security/pkce/request.png)
+      ![alt text](img/security/pkce/exchange.png)
+
+* vulnerabilities
+    * with a user logged in, CSRF is possible if the application doesn’t apply any CSRF protection mechanism
+    * token hijacking
 
 ## PKCE
 * stands for: Proof Key for Code Exchange
@@ -435,114 +506,6 @@
 * defense summary
   ![alt text](img/security/csrf/defense_summary.png)
 
-
-# OAuth2
-* client application is known as a confidential client
-  * run in a restricted environment (server environment)
-  * have access to a secret allowing them to authenticate to the STS
-* use case: only OAuth
-  * an application wants to use an API on behalf of the user
-    * ex: keep posts for linkedin and twitter in a buffer, schedule them and post on twitter and linkedin on a given hour
-    * client needs an access token to make requests to the Restogrande API
-* authorization framework
-* goal: grant applications the permission to access resources through http
-* `access_token`
-* example
-  * Daniel authorizes my-photo-book.example.com to access his pictures hosted on Google Photos
-    * without sharing his Google password
-* we are not talking about identity
-* OAuth and OIDC flows
-  * simulator: https://flowsimulator.pragmaticwebsecurity.com/
-  * Authorization Code flow
-    * authorization code is protections against abuse
-      * confidential client needs to authenticate to exchange an authorization code
-      * authorization codes should be short-lived and should only be valid for one-time use
-    * supports both OAuth and OIDC scenarios
-      * openid scope augments OAuth Authorization Code flow with OIDC features
-    * current best practice to implement OIDC
-    * overview
-      ![alt text](img/security/authorization_code_flow.png)
-    * oidc
-      ![alt text](img/security/oicd/authorization_code_flow.png)
-      ![alt text](img/security/oicd/authorization_code_request.png)
-      ![alt text](img/security/oicd/authorization_code_redirect.png)
-      ![alt text](img/security/oicd/authorization_code_sts_response.png)
-    * oauth
-      ![alt text](img/security/oauth/authorization_code_flow.png)
-      ![alt text](img/security/oauth/authorization_code_request.png)
-      ![alt text](img/security/oauth/authorization_code_sts_response.png)
-    * with pkce
-      ![alt text](img/security/pkce/authorization_code.png)
-      ![alt text](img/security/pkce/request.png)
-      ![alt text](img/security/pkce/exchange.png)
-    * mobile - no client authentication: if client = mobile it will take 3 seconds to get credentials
-      * overview
-        ![alt text](img/security/authorization_code_mobile.png)
-      * mobile app is public client without ability to authenticate to the STS
-      * no client authentication = that's why PKCE is important
-      * supposed to run in an embedded system browser
-        * SFSafariViewController (iOS), Chrome Custom Tabs (Android)
-        * browser is more secure than a webview because the application cannot inspect it
-        * embedded system browser can re-use existing sessions, enabling SSO scenarios
-      * can obtain refresh token for long-term access
-        * secure token storage options include OS' keychain or OS-protected encryption
-        * use of refresh token rotation helps avoid refresh token abuse
-          * mobile does not have credentials - you have only refresh token
-      * story for frontend web clients are the same - public client, no credentials
-        * store code verifier in localStorage
-        * frontend web apps should use the backend-for-frontend pattern to secure OAuth implementations
-  * Client Credentials flow
-    * client is another app that needs to access API
-      * client is accessing API directly on its own behalf
-      * no user involved in the client credentials flow
-        * Oauth2 only flow, not an OIDC flow, so identity tokens are not used
-    * fits within OAuth2 as an authorization framework
-      * access token issued by STS represents client's authority
-      * APIs already know how to handle access tokens
-    * works only with confidential clients
-      * need to run in a secure environment
-    * used for non-user flows like: scheduled cron jobs, github actions, configuration tools
-    * there is no refresh token, to get refresh token u need client credentials so no need to use them every time
-      * no need for refresh token
-  * Implicit and Hybrid flow include the identity token directly in the callback
-    * flows avoid the authorization code exchange, but are significantly harder to secure
-      * u need to do some checks on the client side, some checks on STS side - more places to screw up
-* scopes
-  * allow user to delegate subset of their full authority to a client application
-  * anything u want it to be
-  * define the scope of an access token
-  * space delimited string with scope values
-    * example: scope=opendid email profile read:reviews
-    * github has granular scopes like: invite ppl to repo etc
-  * OAuth2 does not define any scope values
-    * OIDC has a set of reserved scopes
-  * application can define custom scopes
-  * guidelines to define scopes
-    * start by identifying logical groupings in the APIs
-      * ex: reviews and restaurants
-    * determine if different access levels are needed
-      * ex: restaurants is used by a single client
-      * read:reviews is for 3rd party clients
-    * isolate extremely sensitive permissions
-      * ex: delete:reviews is only possible after consent
-* access tokens
-  * can be self-contained token or a reference token
-    * reference token = identifier, means nothing
-      * pass it to STS to perform token introspection to translate token into claims and return claims
-      * fields returned are all marked as optional except for active
-        * active indicates if a token is still valid or not
-        * other fields are only present if a token is valid and provide context information
-        * can include custom fields
-    * introspection TFC also allows token introspection for self-contained tokens
-      * can be used to detect revocation before token expires
-    * main benefit of reference tokens is the high degree of control by STS
-      * revoked tokens will be invalid the next time they are introspected
-        * example: banking app
-          * if someone steals token, 10 mins of abuse is slightly problematic
-          * in case token is compromised - revoke immediately; active=false
-      * downside: mandatory token introspection step
-    * STS decides which type of token to use and how to format them
-    * clients are explicitly forbidden to rely on the format and contents of the access token
 
 # frontend
 * securing Oauth2 in the browser alone is not possible
