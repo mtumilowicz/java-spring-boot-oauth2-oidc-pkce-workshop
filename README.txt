@@ -44,6 +44,9 @@
     * https://medium.com/identity-beyond-borders/auth-code-flow-with-pkce-a75ee203e242
     * https://stackoverflow.com/questions/74174249/redirect-url-for-authorization-code-design-flaw-in-spec
     * https://stackoverflow.com/questions/67812472/oauth-authorization-code-flow-security-question-authorization-code-intercepted
+    * https://stackoverflow.com/questions/58872488/where-is-the-oauth-access-token-stored-in-the-browser-in-case-of-authorization-c
+    * https://spring.io/blog/2023/05/24/spring-authorization-server-is-on-spring-initializr
+    * https://chatgpt.com/
 
 ## general
 * authentication
@@ -110,8 +113,21 @@
             * enhance scalability
             * makes the system architecture more natural to understand and develop
 * JSON Web Token (JWT)
+    * is an open standard
+    * compact and self-contained way for securely transmitting information between parties as a JSON object
     * pronunciation: jot
     * https://jwt.io/
+        * chrome -> dev tools -> application -> storage
+            * HttpOnly cookie
+                * not accessible via JavaScript, reducing the risk of XSS attacks
+                * recommended
+            * in-memory storage
+                * doesn't persist tokens across page reloads or browser sessions
+                    * reauthorize when reloading the page
+                * accessible via JavaScript and vulnerable to XSS attacks
+            * session storage
+                * cleared when the page session ends (typically when the tab or window is closed)
+                * accessible via JavaScript and vulnerable to XSS attacks
     * typically looks like this: `xxxxx.yyyyy.zzzzz`
     * three parts separated by a dot
         * header
@@ -145,6 +161,7 @@
                     * should be well documented
                 * private claims
                     * known only to the producer and consumer of a JWT
+                * always validate claims even if signature is valid
         * signature
             ```
             HMACSHA256( // example with HMAC SHA256 algorithm
@@ -162,22 +179,45 @@
         * if the token is long, it slows the request
         * the longer the token, the more time the cryptographic algorithm needs for signing it
 
+    * there’s 4 algorithms that can be used to sign a JWT (seal our envelope):
+        * HMAC (symmetric)
+        * RSA (asymmetric)
+        * ESDSA (asymmetric)
+        * None (no signature)
+            * not supposed to be used for a production environment
+        * ideal configuration: disable all algorithms that are not being used and specially
+            * substitution attack
+                1. attacker authenticates to a web server with valid credentials
+                1. web server generates a JWT and signs it with an RSA private key
+                1. JWT is passed on to the attacker
+                1. attacker tampers with the JWT
+                    1. downloads the public key
+                        * public key is exposed on an endpoint such as /.well-known/jwks.json
+                    1. changes JWT
+                    1. signs the JWT with the exposed public key
+                    1. changes the encryption algorithm to HMAC
+                    1. sends the request across
+                1. tampered JWT has been signed with the exposed public key, and the algorithm in use is HMAC, the JWT gets validated
+                    * HMAC is a symmetrical encryption
+
 ## oauth2
 * delegated authorization
     * how can I allow an app to access my data without necessarily giving it my password?
     * authorization is the ability of an external app to access resources
     * example: Spotify trying to access your facebook friends list to import it into Spotify
 * implementations: Keycloak or Okta
-* defines four roles:
+* defines four roles
     * Resource Owner
         * the user himself
+        * entity that can agree to provide access to a protected resource
     * Client
         * application requesting access to a resource server
+        * typically web application calling an api or an api calling an api
     * Authorization Server
+        * stores the user's and client's credentials
+            * client credentials: allows known applications to be authorized by it
         * server issuing access token to the client
         * token will be used for the client to request the resource server
-        * stores the user’s and client’s credentials
-            * client credentials: allows known applications to be authorized by it
     * Resource Server
         * server hosting protected data
             * example: Facebook hosting your profile and personal information
@@ -198,10 +238,12 @@
                 * commonly used
                     * google, twitter etc
                         * https://developer.github.com/apps/building-oauth-apps/authorizing-oauth-apps/
+* vulnerabilities
+    * with a user logged in, CSRF is possible if the application doesn’t apply any CSRF protection mechanism
+    * token hijacking
 * authorization code flow
     * exchanges an authorization code for a token
-    * you have to also pass along your app’s Client Secret
-    * use cases: Server side web applications where the source code is not exposed publicly
+        * alongside with app’s Client Secret
     * steps
         1. user clicks on a login link in the web application
         1. user is redirected to an OAuth authorization server
@@ -210,26 +252,18 @@
         1. user is redirected to the application, with a one-time authorization code
             * authorization code will be available in the `code` URL parameter
                 * from specification: authorization code will be sent via HTTP 302 "redirect" URL to the client
-            * why authorization code is returned and not the token itself
-                * if the access token would be returned directly (instead of authorization code)
-                machine with the browser/app would have access to it
-                * don't trust the users machine to hold tokens but you do trust your own servers
-            * note that authorization code is used exactly once
-                * in many scenarios that an attacker might get access to the code, it's already been exchanged
-                for an access token and therefore useless
-                * to mitigate the risk of stealing authorization code you can use PKCE
+            * why authorization code is returned and not the token itself?
+                * prevents replay attacks
+                    * note that authorization code is used exactly once
+                        * in many scenarios that an attacker might get access to the code, it's already been exchanged
+                        for an access token and therefore useless
+            * to mitigate the risk of stealing authorization code you can use PKCE
         1. app receives the user’s authorization code
             * forwards it along with the Client ID and Client Secret, to the OAuth authorization server
                 * why to not pass client secret in the first step?
-                    * you could not trust the client (user/his browser which try to use you application)
-                * keeps sensitive information (client secret) from the browser
-                * uses secure channel of communication
-                    * connection between client application and authorization server is hidden from user
-                        * it could be very secured channel not the same as the one from user to client application
+                    * keeps sensitive information (client secret) from the browser
+                        * you could not trust the client (user/his browser which try to use you application)
         1. authorization server sends an ID Token, Access Token, and an optional Refresh Token
-            * in the end the authorization server (e.g: "Login with Facebook") will talk directly with
-            he client (say, your server-side BFF) that will ultimately access the resource, so that
-            the user-agent never has direct access
         1. web application can then use the Access Token to gain access to the target API
 * refresh tokens
     * token that doesn’t expire is too powerful
@@ -239,17 +273,35 @@
             * app would redirect back about three times every hour to log in again
     * used to obtain a new access token instead of reauthentication
         * storing the refresh token is safer: you can revoke it if you find that it was exposed
-* vulnerabilities
-    * with a user logged in, CSRF is possible if the application doesn’t apply any CSRF protection mechanism
-    * token hijacking
+    * should be considered as sensitive as user credentials
+      * it is somewhat nuanced: using refresh token requires client authentication
+        * but in mobiles / public client you don't have client credentials - so only refresh token
+      * when attacker gains access to both, users are in major trouble
+    * minimum security requirement: guaranteeing confidential storage
+      * move refresh tokens to an isolated service in architecture
+        * main application can request a new access token from this service
+        * only service has access to the encrypted refresh tokens and associated keys
+    * how to get refresh token
+      * some STS configurations automatically issue a refresh token to certain clients
+      * sometime client is expected to request offline_access scope when initializing the flow
+    * lifetime
+      * hours, months or eternity
+      * can be revoked at STS
+        * clients can revoke refresh tokens when they no longer need them
+        * users can often revoke refresh tokens to revoke a client's authority to act on their behalf
+    * when a refresh token is no longer valid, no path to recovery
+      * to regain access - run new Authorization Code flow
+      * for backend client apps: often includes explicitly requesting user involvement
+    * refresh token rotation
+      * each refresh gives new token and **new refresh token**
+        * rf1 -> (at2, rf2)
+    * detect refresh token abuse
+      * we have authToken1, refrToken1 if refrToken1 is intercepted and attacker uses it (to get AT2, RT2), if out app
+      uses RT1 we invalidate everything immediately (server knows that RT1 was used for the second time)
+      * what if stolen token is never used twice?
+        * security relies on seeing token twice
+        * scenario: attacker steals token and waits until application goes offline (user closed app, is on the airplane etc)
 
-## OpenId Connect
-* allows for "Federated Authentication"
-* are built using the Oauth2.0 and then adding a few additional steps over
-* Federated Authentication is a completely different from Delegated Authorization
-    * example: Federated Authentication is logging to Spotify using your facebook credentials
-    * distinction is important because OAuth 2.0 flow is designed to "grant authorization" and
-      is not meant to be used to "authenticate"
 
 ## PKCE
 * stands for: Proof Key for Code Exchange
@@ -304,6 +356,26 @@
         1. application can use the access token to call an API to access information about the user
         1. API responds with requested data
 
+
+## OpenId Connect (OIDC)
+* allows for "Federated Authentication"
+    * example: Federated Authentication is logging to Spotify using your facebook credentials
+* current practice
+    * asking for permissions - OAuth 2.0
+        * Delegated Authorization
+        * most OAuth2 servers also implement OpenId Connect
+    * authentication and single-sign on - OpenID Connect
+        * Federated Authentication
+* authentication protocol built on top of OAuth2, JWT and TLS
+    * defines a standarized user identity token as JWT with required fields
+        * iss - who issues the token
+        * iat - time when the token was issued
+        * exp - time when the token expires
+        * sub - unique id of the user that the token represents
+        * aud - list of systems that can use the token
+    * defines a userinfo endpoint that clients can call to learn details about the user
+        * example: email address, profile, contact info
+
 ## insomnia
 * GET: some service url
 * tab Auth: OAuth 2.0
@@ -315,3 +387,186 @@
 
 
 * use: http://127.0.0.1:8080/ not localhost
+* http://localhost:8085/.well-known/oauth-authorization-server
+* http://localhost:8085/.well-known/openid-configuration
+
+# csrf
+* if u use cookies - ur by default vulnerable
+* prerequisite: track user authentication state in cookie
+  * what matters is transport mechanism is cookie
+  * authentication state could be anything: session-id or token etc
+* steps
+  * setting scene with normal communication
+    ![alt text](img/security/csrf/session_cookie_get.png)
+  * evil web page is sending request to the backend when u visit
+    ![alt text](img/security/csrf/attack.png)
+    * how to get there? attack sends u a link: "u must watch it"
+    * request looks identical to legitimate scenario
+* csrf defense:
+  * synchronizer tokens
+    ![alt text](img/security/csrf/defense_synchronizer_tokens.png)
+    * server returns response with secret + cookie, and then u need to send that secret to server as part of request
+      * url=...&csrf_token=530_ea8
+    * attacker cannot read it as secret is in victim browser and no outside
+      * so standard attack is undoable
+      * same-origin policy prevents a malicious page from stealing a legitimate token from a page
+        * The same-origin policy ensures that a malicious page from a different domain cannot read the anti-CSRF token from the target site because it cannot make cross-origin requests.
+    * problem: requires explicit implementation effort and is often forgotten or omitted
+  * SameSite cookies
+    ![alt text](img/security/csrf/defense_samesite_cookies.png)
+    * adds a flag for the browser: that cookie is intended for same site request only
+    * attacker cannot use it, because browser would remove that cookie: only same site allowed
+    * SameSite cookies are not included on cross-site requests
+    * attacker can still send the request, but cookie-based authentication state will not be included by the browser
+    * default behaviour: google rolls out SameSite cookie changes to Chrome
+    * problem: SameSite cookies cannot protect against Cross-Origin (but Same-Site) Request Forgery
+      * SameSite cookies effectively mitigate Cross-Site Request Forgery attacks
+      * attacker: launch attack from subdomain of your site
+        * why would we ever give an attacker control over a subdomain?
+          * Rampant CNAME misconfiguration leaves thousands of organizations open to subdomain takeover attacks
+            * DNS wrongly configured - CNAME points to some cloud resource
+            * there are some unused entries that attacker can register once again to point to his malicious site
+            * dangling subdomains
+          * attackers can serve malicious content to hijack user's sessions by abusing OAuth 2.0 redirect URIs
+* same for APIs -> you can format data as json from malicious web
+  * APIs that rely on cookies are less common
+  * APIS should restrict HTTP methods and content types, and force the use of CORS requests by requiring the client
+    to include a custom request header
+* defense summary
+  ![alt text](img/security/csrf/defense_summary.png)
+
+
+# OAuth2
+* client application is known as a confidential client
+  * run in a restricted environment (server environment)
+  * have access to a secret allowing them to authenticate to the STS
+* use case: only OAuth
+  * an application wants to use an API on behalf of the user
+    * ex: keep posts for linkedin and twitter in a buffer, schedule them and post on twitter and linkedin on a given hour
+    * client needs an access token to make requests to the Restogrande API
+* authorization framework
+* goal: grant applications the permission to access resources through http
+* `access_token`
+* example
+  * Daniel authorizes my-photo-book.example.com to access his pictures hosted on Google Photos
+    * without sharing his Google password
+* we are not talking about identity
+* OAuth and OIDC flows
+  * simulator: https://flowsimulator.pragmaticwebsecurity.com/
+  * Authorization Code flow
+    * authorization code is protections against abuse
+      * confidential client needs to authenticate to exchange an authorization code
+      * authorization codes should be short-lived and should only be valid for one-time use
+    * supports both OAuth and OIDC scenarios
+      * openid scope augments OAuth Authorization Code flow with OIDC features
+    * current best practice to implement OIDC
+    * overview
+      ![alt text](img/security/authorization_code_flow.png)
+    * oidc
+      ![alt text](img/security/oicd/authorization_code_flow.png)
+      ![alt text](img/security/oicd/authorization_code_request.png)
+      ![alt text](img/security/oicd/authorization_code_redirect.png)
+      ![alt text](img/security/oicd/authorization_code_sts_response.png)
+    * oauth
+      ![alt text](img/security/oauth/authorization_code_flow.png)
+      ![alt text](img/security/oauth/authorization_code_request.png)
+      ![alt text](img/security/oauth/authorization_code_sts_response.png)
+    * with pkce
+      ![alt text](img/security/pkce/authorization_code.png)
+      ![alt text](img/security/pkce/request.png)
+      ![alt text](img/security/pkce/exchange.png)
+    * mobile - no client authentication: if client = mobile it will take 3 seconds to get credentials
+      * overview
+        ![alt text](img/security/authorization_code_mobile.png)
+      * mobile app is public client without ability to authenticate to the STS
+      * no client authentication = that's why PKCE is important
+      * supposed to run in an embedded system browser
+        * SFSafariViewController (iOS), Chrome Custom Tabs (Android)
+        * browser is more secure than a webview because the application cannot inspect it
+        * embedded system browser can re-use existing sessions, enabling SSO scenarios
+      * can obtain refresh token for long-term access
+        * secure token storage options include OS' keychain or OS-protected encryption
+        * use of refresh token rotation helps avoid refresh token abuse
+          * mobile does not have credentials - you have only refresh token
+      * story for frontend web clients are the same - public client, no credentials
+        * store code verifier in localStorage
+        * frontend web apps should use the backend-for-frontend pattern to secure OAuth implementations
+  * Client Credentials flow
+    * client is another app that needs to access API
+      * client is accessing API directly on its own behalf
+      * no user involved in the client credentials flow
+        * Oauth2 only flow, not an OIDC flow, so identity tokens are not used
+    * fits within OAuth2 as an authorization framework
+      * access token issued by STS represents client's authority
+      * APIs already know how to handle access tokens
+    * works only with confidential clients
+      * need to run in a secure environment
+    * used for non-user flows like: scheduled cron jobs, github actions, configuration tools
+    * there is no refresh token, to get refresh token u need client credentials so no need to use them every time
+      * no need for refresh token
+  * Implicit and Hybrid flow include the identity token directly in the callback
+    * flows avoid the authorization code exchange, but are significantly harder to secure
+      * u need to do some checks on the client side, some checks on STS side - more places to screw up
+* scopes
+  * allow user to delegate subset of their full authority to a client application
+  * anything u want it to be
+  * define the scope of an access token
+  * space delimited string with scope values
+    * example: scope=opendid email profile read:reviews
+    * github has granular scopes like: invite ppl to repo etc
+  * OAuth2 does not define any scope values
+    * OIDC has a set of reserved scopes
+  * application can define custom scopes
+  * guidelines to define scopes
+    * start by identifying logical groupings in the APIs
+      * ex: reviews and restaurants
+    * determine if different access levels are needed
+      * ex: restaurants is used by a single client
+      * read:reviews is for 3rd party clients
+    * isolate extremely sensitive permissions
+      * ex: delete:reviews is only possible after consent
+* access tokens
+  * can be self-contained token or a reference token
+    * reference token = identifier, means nothing
+      * pass it to STS to perform token introspection to translate token into claims and return claims
+      * fields returned are all marked as optional except for active
+        * active indicates if a token is still valid or not
+        * other fields are only present if a token is valid and provide context information
+        * can include custom fields
+    * introspection TFC also allows token introspection for self-contained tokens
+      * can be used to detect revocation before token expires
+    * main benefit of reference tokens is the high degree of control by STS
+      * revoked tokens will be invalid the next time they are introspected
+        * example: banking app
+          * if someone steals token, 10 mins of abuse is slightly problematic
+          * in case token is compromised - revoke immediately; active=false
+      * downside: mandatory token introspection step
+    * STS decides which type of token to use and how to format them
+    * clients are explicitly forbidden to rely on the format and contents of the access token
+
+# frontend
+* securing Oauth2 in the browser alone is not possible
+* attackers can do anything a legitimate frontend developer can do
+  * including modifying the page, sending requests and running Oauth2 flows
+* besides the general risk of XSS, if tokens are stored or handled by the browser, XSS poses an
+additional risk of token exfiltration
+  * stealing data from storage areas is a trivial attack
+* u cannot secure browser-only flows
+  * solution: backend for frontend (BFF)
+    * remove all OAuth2 functionality from the frontend app
+      * relies now on cookies
+    * bff proxies api calls and replaces cookies with tokens
+    * bff runs the authorization code flow with client authentication
+      * vs frontend running auth code flow WITHOUT client authentication
+    * attacker has no longer direct access to security token service
+      * compromised frontend app can still send request through bff (aka session riding)
+        * bff reduces consequences of attack to session riding
+      * only endpoints exposed by bff can be abused
+        * attacker never has unfettered access to the apis
+    * bff observes all the api requests from a client and can perform rate-limiting, anomaly detection etc
+    * even with bff preventing xss is crucial
+    * putting access token in an HttpOnly cookie moves token handling from the frontend to the browser
+      * works well in first-party scenarios where the authorization server and the backend belong to the same domain
+* stopping token exfiltration is irrelevant
+  * attacker can invoke its own oauth2 flow in background and get its own tokens
+    * completely independent from the application's tokens => refresh token rotation does not help
