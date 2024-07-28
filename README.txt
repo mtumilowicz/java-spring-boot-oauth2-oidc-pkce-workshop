@@ -72,7 +72,68 @@
     * [The Insecurity of OAuth 2.0 in Frontends](https://www.youtube.com/watch?v=2nVYLruX76M)
     * [Getting API security right - Philippe De Ryck - NDC London 2023](https://www.youtube.com/watch?v=7UBm8QFTaq0)
 
-## general
+## preface
+* goals of this workshop
+* workshop plan
+    * simulation
+        * https://www.oauth.com/playground/authorization-code.html
+        * https://www.oauth.com/playground/authorization-code-with-pkce.html
+    * server part
+        1. run server
+        1. generate verifier and hash it
+            ```
+            sIbiEo4WKEXWVJmRYJBEanLpt5eRD3kodIMYyo7Ywx-w6P_T // verifier
+            j8mJ_BqaR97Bc-C0PGD4lZCgp45d4dQvmqEjRbdJ474 // challenge
+            ```
+        1. authorize
+            ```
+            http://localhost:8085/oauth2/authorize
+            ?response_type=code &client_id=pkce-client
+            &redirect_uri=http://127.0.0.1:8080/login/oauth2/code/pkce
+            &scope=openid%20email%20profile
+            &code_challenge=j8mJ_BqaR97Bc-C0PGD4lZCgp45d4dQvmqEjRbdJ474
+            &code_challenge_method=S256
+            ```
+        1. use code from redirect response
+        1. get token
+            ```
+            curl -X POST http://localhost:8085/oauth2/token \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -H "Authorization: Basic cGtjZS1jbGllbnQ6b2JzY3VyYQ==" \
+            -d "grant_type=authorization_code" \
+            -d "code=2Zg-8Vhe9C28eYf6Sk0ai4BK77Ybmsy4yRi1wPqnFHGIrIfpk45btmI_1oDbJc4-orUWmpim-K-GLi9uULbuTdcAcF6Ss7LF0j508KYmbNOPGvENjCn5gMuWNjA-BZqF" \
+            -d "redirect_uri=http://127.0.0.1:8080/login/oauth2/code/pkce" \
+            -d "code_verifier=sIbiEo4WKEXWVJmRYJBEanLpt5eRD3kodIMYyo7Ywx-w6P_T"
+            ```
+        1. use token to access `http://localhost:8085/userinfo`
+        1. verify public endpoints
+            * http://localhost:8085/oauth2/jwks
+                * verify that public key is RSA
+            * http://localhost:8085/.well-known/oauth-authorization-server
+                * verify issuer, authorization_endpoint, token_endpoint, jwks_uri
+            * http://localhost:8085/.well-known/openid-configuration
+                * verify issuer, authorization_endpoint, token_endpoint, jwks_uri
+    * server + client
+        1. run server
+        1. run client
+        1. configure insomnia
+            ```
+            Grant Type: Authorization Code
+            Authorization Url: http://localhost:8085/oauth2/authorize
+            Access Token Url: http://localhost:8085/oauth2/token
+            Client Id: pkce-client
+            Client Secret: obscura
+            Use PKCE: yes
+            Code Challenge Method: SHA-256
+            Redirect Url: http://127.0.0.1:8080/login/oauth2/code/pkce
+            Scope: profile openid email
+            Credentials: As Basic Auth Header (default)
+            ```
+        1. access client: `http://127.0.0.1:8080/`
+            * don't use localhost
+        1. authorize and you should see i
+
+## basics
 * authentication
     * process leading to identification
 * authorization
@@ -188,9 +249,6 @@
                 * can be missing
                 * when a JWT is signed, we also call it a JWS (JSON Web Token Signed)
                     * if a token is encrypted, we also call it a JWE (JSON Web Token Encrypted)
-        * keep the token as short as possible
-            * if the token is long, it slows the request
-            * the longer the token, the more time the cryptographic algorithm needs for signing it
         * there’s 4 algorithms that can be used to sign a JWT (seal our envelope)
             * HMAC (symmetric)
             * RSA (asymmetric)
@@ -211,6 +269,9 @@
                         1. sends the request across
                     1. tampered JWT has been signed with the exposed public key, and the algorithm in use is HMAC, the JWT gets validated
                         * HMAC is a symmetrical encryption
+        * keep the token as short as possible
+            * if the token is long, it slows the request
+            * the longer the token, the more time the cryptographic algorithm needs for signing it
         * frontend
             * chrome -> dev tools -> application -> storage
             * securing token in the browser alone is not possible
@@ -418,17 +479,3 @@
         * aud - list of systems that can use the token
     * defines a userinfo endpoint that clients can call to learn details about the user
         * example: email address, profile, contact info
-
-## insomnia
-* GET: some service url
-* tab Auth: OAuth 2.0
-    * Grant Type: Authorization Code
-    * Authorization URL: http://localhost:8080/oauth/authorize
-    * Access Token URL: http://localhost:8080/oauth/token
-    * Client Id: client1
-    * Client Secret: secret1
-
-
-* use: http://127.0.0.1:8080/ not localhost
-* http://localhost:8085/.well-known/oauth-authorization-server
-* http://localhost:8085/.well-known/openid-configuration
