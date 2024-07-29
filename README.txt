@@ -1,3 +1,6 @@
+[![Build Status](https://app.travis-ci.com/mtumilowicz/java-spring-boot-oauth2-oidc-pkce-workshop.svg&branch=main)](https://app.travis-ci.com/mtumilowicz/java-spring-boot-oauth2-oidc-pkce-workshop)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+
 * references
     * https://www.debugbear.com/basic-auth-header-generator
     * https://github.com/spring-projects/spring-authorization-server/issues/141
