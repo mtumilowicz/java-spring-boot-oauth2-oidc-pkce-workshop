@@ -77,6 +77,13 @@
 
 ## preface
 * goals of this workshop
+    * introduction into oauth2 & oidc
+        * authorization flow & pkce
+    * understanding tokens based on JWT
+    * enumerating problems with protecting frontend
+        * storage
+        * xss
+        * csrf
 * workshop plan
     * simulation
         * https://www.oauth.com/playground/authorization-code.html
