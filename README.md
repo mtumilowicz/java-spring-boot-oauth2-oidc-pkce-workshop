@@ -76,6 +76,7 @@
     * [The Insecurity of OAuth 2.0 in Frontends](https://www.youtube.com/watch?v=2nVYLruX76M)
     * [Getting API security right - Philippe De Ryck - NDC London 2023](https://www.youtube.com/watch?v=7UBm8QFTaq0)
     * [OAuth2, OpenID: live-coding SSO, from first principles by Daniel Garnier-Moiroux](https://www.youtube.com/watch?v=LJfUGH-88fM)
+    * https://chatgpt.com
 
 ## preface
 * goals of this workshop
@@ -494,6 +495,9 @@
         * most OAuth2 servers also implement OpenId Connect
     * authentication and single-sign on - OpenID Connect
         * Federated Authentication
+* In an OIDC flow, you typically receive:
+    * ID Token → to know who the user is
+    * Access Token → to get what they can do
 * authentication protocol built on top of OAuth2, JWT and TLS
     * defines a standarized user identity token as JWT with required fields
         * iss - who issues the token
