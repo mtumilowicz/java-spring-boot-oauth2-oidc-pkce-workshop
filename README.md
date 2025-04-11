@@ -108,7 +108,7 @@
             &code_challenge_method=S256
             ```
         1. use code from redirect response
-        1. get token
+        1. exchange code for token
             ```
             curl -X POST http://localhost:8085/oauth2/token \
             -H "Content-Type: application/x-www-form-urlencoded" \
