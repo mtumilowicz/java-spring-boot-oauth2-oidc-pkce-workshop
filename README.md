@@ -75,6 +75,7 @@
     * [The insecurity of OAuth 2.0 in frontends - Philippe de Ryck - NDC Security 2023](https://www.youtube.com/watch?v=OpFN6gmct8c)
     * [The Insecurity of OAuth 2.0 in Frontends](https://www.youtube.com/watch?v=2nVYLruX76M)
     * [Getting API security right - Philippe De Ryck - NDC London 2023](https://www.youtube.com/watch?v=7UBm8QFTaq0)
+    * [OAuth2, OpenID: live-coding SSO, from first principles by Daniel Garnier-Moiroux](https://www.youtube.com/watch?v=LJfUGH-88fM)
 
 ## preface
 * goals of this workshop
@@ -357,6 +358,7 @@
         * Spotify trying to access your facebook friends list to import it into Spotify
         * keep posts for linkedin and twitter in a buffer, schedule them and post on twitter and linkedin on a given hour
         * authorize some website to access pictures hosted on Google Photos without sharing his Google password
+        * controlling access: ability to revoke access without changing credentials
 * implementations: Keycloak, Okta
 * defines four roles
     * Resource Owner
