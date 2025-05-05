@@ -334,7 +334,7 @@
                                                     * dangling subdomains
                             * defense summary
                               
-                                ![alt text](img/security/csrf_defense_summary.png)
+                                ![alt text](img/csrf_defense_summary.png)
                                 * synchronizer tokens
                                     * server returns response with secret + cookie
                                         * you need to send that secret to server as part of request: `url=...&csrf_token=530_ea8`
