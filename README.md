@@ -480,8 +480,6 @@
                     * native apps
                         * decompiling the app will reveal the Client Secret
                             * bound to the app and the same for all users and devices
-                        * malicious app is registered with the same custom URI (redirect URI) as the legitimate app
-                            ![txt](img/stealing_auth_code.png)
                     * single-page apps
                         * entire source is available to the browser
         * is not a replacement for a client secret
