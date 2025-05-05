@@ -155,7 +155,7 @@
             ```
         1. access client: `http://127.0.0.1:8080/`
             * don't use localhost
-        1. authorize and you should see i
+        1. authorize and you should see it
 
 ## basics
 * authentication
@@ -250,8 +250,11 @@
                         * predefined claims which are not mandatory but recommended
                         * important ones
                             * `iss` (issuer): issuer of the JWT
-                            * `sub` (subject): subject of the JWT (the user)
+                                * example: authentication server
+                            * `sub` (subject): subject of the JWT
+                                * example: user id
                             * `aud` (audience): recipient for which the JWT is intended
+                                * example: frontend app
                             * `exp` (expiration time): time after which the JWT expires
                     * public claims
                         * defined for public consumption
