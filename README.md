@@ -282,7 +282,7 @@
             * ESDSA (asymmetric)
             * None (no signature)
                 * not supposed to be used for a production environment
-            * ideal configuration: disable all algorithms that are not being used and specially
+            * ideal configuration: disable all algorithms that are not being used
                 * substitution attack
                     1. attacker authenticates to a web server with valid credentials
                     1. web server generates a JWT and signs it with an RSA private key
@@ -304,6 +304,8 @@
             * securing token in the browser alone is not possible
                 * stealing data from storage areas is a trivial attack
                 * solution: backend for frontend (BFF)
+                    * browser receives an HTTP-only, Secure cookie from the BFF
+                        * not accessible by JavaScript (HttpOnly)
                     * bff proxies api calls and replaces cookies with tokens
                     * attacker has no longer direct access to security token service
                     * compromised frontend app can still send request through bff (aka session riding)
@@ -331,6 +333,7 @@
                                                 * there are some unused entries that attacker can register once again to point to his malicious site
                                                     * dangling subdomains
                             * defense summary
+                              
                                 ![alt text](img/security/csrf_defense_summary.png)
                                 * synchronizer tokens
                                     * server returns response with secret + cookie
