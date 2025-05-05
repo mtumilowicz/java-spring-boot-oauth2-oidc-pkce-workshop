@@ -503,7 +503,10 @@
             1. Google displays the login screen
             1. user logs in and approves access
             1. Google redirects the browser back to mobile app, to the registered `redirect_uri`, with `code` and `state` in the URL
-                * via deep linking or a custom scheme
+                * via deep linking (mobile apps don’t have web servers)
+                    * example: https://grok.ai/oauth/mobile-callback
+                    * OS is configured to open the app when that URL is clicked, instead of a browser
+                            
             1. mobile app captures the redirect (via deep linking or a custom scheme) and extracts the code
                 * mobile app verifies that the returned state matches the original value generated earlier
                     * not => response is rejected as a CSRF or replay attack
