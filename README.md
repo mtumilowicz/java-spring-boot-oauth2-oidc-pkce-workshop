@@ -1,7 +1,7 @@
 [![Build Status](https://app.travis-ci.com/mtumilowicz/java-spring-boot-oauth2-oidc-pkce-workshop.svg?branch=main)](https://app.travis-ci.com/mtumilowicz/java-spring-boot-oauth2-oidc-pkce-workshop)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 
-# java-spring-boot-oauth2-pkce-workshop
+# java-spring-boot-oauth2-oidc-pkce-workshop
 * references
     * https://www.debugbear.com/basic-auth-header-generator 
     * https://github.com/spring-projects/spring-authorization-server/issues/141
@@ -411,25 +411,34 @@
     * authorization code flow
         * exchanges an authorization code for a token
             * alongside with app’s Client Secret
-        * steps
-            1. user clicks on a login link in the web application
-            1. user is redirected to an OAuth authorization server
-            1. user provides credentials
+        * steps (example with http://grok.com, but it can be any page that allows to log in with google)
+            1. you open the Grok AI site, and you’re not logged in
+            1. you click "Continue with Google"
+            1. Grok AI redirects your browser to Google’s OAuth authorization endpoint with:
+                * client_id (identifies Grok AI)
+                * redirect_uri (back to Grok AI)
+                * response_type=code
+                * scope (e.g., email, profile)
+                * state (CSRF protection)
+            1. Google shows the login screen
+            1. you enter your credentials and approve access for Grok AI
                 * typically, the user is shown a list of permissions that will be granted
-            1. user is redirected to the application, with a one-time short-lived authorization code
-                * authorization code will be available in the `code` URL parameter
-                    * from specification: authorization code will be sent via HTTP 302 "redirect" URL to the client
+            1. Google redirects your browser back to Grok AI, to the registered redirect_uri, with a code=abc123 in the URL
+                * authorization code is in the `code` URL parameter
+                    * specification: authorization code will be sent via HTTP 302 "redirect" URL to the client
                 * why authorization code is returned and not the token itself?
-                    * prevents replay attacks
-                        * note that authorization code is used exactly once
-                            * in many scenarios that an attacker might get access to the code, it's already been exchanged
-                            for an access token and therefore useless
-            1. app receives the user’s authorization code
-                * forwards it along with the Client ID and Client Secret, to the OAuth authorization server
-                    * why to not pass client secret in the first step?
-                        * keeps sensitive information (client secret) from the browser
-                            * you could not trust the client (user/his browser which try to use you application)
-            1. authorization server sends an ID Token, Access Token, and an optional Refresh Token
+                    * note that authorization code is used exactly once
+                        * in many scenarios that an attacker might get access to the code, it's already been exchanged
+                        for an access token and therefore useless
+            1. Grok AI's backend receives this code and makes a secure request to Google's token endpoint
+                * including
+                    * code
+                    * client_id and client_secret
+                    * same redirect_uri
+                * why to not pass client secret in the first step?
+                    * keeps sensitive information (client secret) from the browser
+                    * no trust to the client (user/his browser)
+            1. Google returns an Access Token, ID Token and an optional Refresh Token to Grok AI’s backend
                 * refresh tokens
                     * token that doesn’t expire is too powerful
                     * to obtain a new access token, the client can rerun the flow
@@ -440,25 +449,30 @@
                         * storing the refresh token is safer: you can revoke it if you find that it was exposed
                     * should be considered as sensitive as user credentials
                         * nuanced: using refresh token requires client authentication
-                            * but in mobiles / public client you don't have client credentials - so only refresh token
                             * when attacker gains access to both, users are in major trouble
-                    * minimum security requirement: guaranteeing confidential storage
-                        * move refresh tokens to an isolated service in architecture
+                            * digression: in mobiles / public client you don't have client credentials
+                    * security
+                        * refresh tokens can be moved to an isolated service in architecture
                             * main application can request a new access token from this service
                             * only service has access to the encrypted refresh tokens and associated keys
-                    * refresh token rotation
                         * each refresh gives new token and **new refresh token**: `rf1 -> (at2, rf2)`
                             * detect refresh token abuse: if refresh token was reused => invalidate new tokens immediately
                                 * what if stolen token is never used twice?
                                   * security relies on seeing token twice
                                   * scenario: attacker steals token and waits until application goes offline (user closed app, is on the airplane etc)
-            1. web application can then use the Access Token to gain access to the target API
+            1. Grok AI can then use the Access Token to gain access to the target API
+            1. Grok AI creates a secure session for you (e.g., via an HttpOnly cookie) and you are now logged in
+                * creates a user session in its own system (e.g., a session ID stored in a DB or memory)
+                * sends a secure Set-Cookie response back to your browser
+                    * `Set-Cookie: session=abcxyz; HttpOnly; Secure; SameSite=Lax`
+                        * HttpOnly: JavaScript can’t access it (mitigates XSS)
+                        * Secure: Only sent over HTTPS
+                        * SameSite: Prevents the browser from sending it in cross-site requests (helps block CSRF)
     * to mitigate the risk of stealing authorization code you can use PKCE
         * stands for: Proof Key for Code Exchange
-        * problem with standard authorization code flow
-            * intercepting authorization code + public client
-                * opposite of confidential client
-                    * no real way of authenticating themselves
+        * problem with standard authorization code flow: public client
+            * public client does not have client secret
+                * no real way of authenticating themselves => intercepting authorization code is enough
                 * example
                     * native apps
                         * decompiling the app will reveal the Client Secret
@@ -467,19 +481,40 @@
                             ![txt](img/stealing_auth_code.png)
                     * single-page apps
                         * entire source is available to the browser
-                    * called public clients (when an end user could view and modify the code)
-                        * they do not have a real way of authenticating themselves
         * is not a replacement for a client secret
             * is recommended even if a client is using a client secret
             * allows the authorization server to validate: client exchanging the authorization code == same client that requested it
-        * how it works
-            * in place of the `client_secret`, the client app creates a unique string value, `code_verifier`
-            * `code_challenge` = hashed and encoded `code_verifier`
-            * when the client app initiates the first part of the Authorization Code flow, it sends a hashed `code_challenge`
-            * then the client app requests an `access_token` in exchange for the authorization code
-                * client app must include the original unique string value in the `code_verifier`
-            * communication between the client and authorization server should be through a secured channel(TLS)
-            so the codes cannot be intercepted
+        * steps (example with mobile app - grok ai, but it can be any mobile app that allows to log in with google)
+            1. user opens the Grok AI mobile app and taps “Log in with Google”
+            1. mobile app generates a code_verifier (a random string) and computes a code_challenge (usually a SHA-256 hash of the verifier)
+                * `code_challenge` = hashed and encoded `code_verifier`
+            1. mobile app opens the system browser (or in-app browser) and redirects the user to Google’s authorization endpoint with:
+                * response_type=code
+                * client_id
+                * redirect_uri=com.grokai:/callback
+                * code_challenge
+                * code_challenge_method=S256
+                * scope=email profile openid
+                * state=random_string
+            1. Google shows the login screen
+            1. user logs in and approves access
+            1. Google redirects the browser to the registered app redirect URI, including:
+                * code=xyz123
+                * state=random_string
+            1. mobile app captures the redirect (via deep linking or a custom scheme) and extracts the code
+            1. mobile app sends a POST request to Google’s token endpoint:
+                * grant_type=authorization_code
+                * code=xyz123
+                * client_id
+                * redirect_uri=com.grokai:/callback
+                * code_verifier (original, unhashed value)
+            1. Google validates:
+                * The code was issued for that client
+                * The redirect_uri matches
+                * The code_verifier matches the original code_challenge
+            1. Google returns: access_token, id_token, (Optional) refresh_token
+            1. mobile app stores the tokens securely (e.g., encrypted local storage or keychain)
+            1. mobile app uses the access token to call APIs
     * other
         * Client Credentials flow
             * no user involved
